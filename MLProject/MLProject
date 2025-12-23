@@ -1,0 +1,14 @@
+name: BookPopularityClassification
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_estimators: {type: int, default: 100}
+      max_depth: {type: int, default: 20}
+      random_state: {type: int, default: 42}
+    command: "python modelling.py"
+  
+  train_tuned:
+    command: "python modelling_tuning.py {n_estimators} {max_depth} {random_state}"
