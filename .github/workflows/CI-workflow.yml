@@ -1,4 +1,4 @@
-name: CI/CD Book Popularity Model
+name: CI/CD MLflow
 
 on:
   push:
@@ -10,7 +10,7 @@ env:
   TARGET_VAR: "bestseller_status"
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
