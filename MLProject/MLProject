@@ -11,4 +11,4 @@ entry_points:
     command: "python modelling.py"
   
   train_tuned:
-    command: "python modelling_tuning.py {n_estimators} {max_depth} {random_state}"
+    command: "python modelling.py {n_estimators} {max_depth} {random_state}"
