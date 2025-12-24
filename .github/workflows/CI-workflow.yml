@@ -27,8 +27,16 @@ jobs:
         with:
           auto-update-conda: true
           python-version: '3.12'
+          activate-environment: mlflow-env
+      
+      - name: Install MLflow
+        shell: bash -l {0}
+        run: |
+          pip install mlflow==2.19.0
+          mlflow --version
       
       - name: Run MLflow Project
+        shell: bash -l {0}
         run: |
           cd MLProject
           mlflow run . \
