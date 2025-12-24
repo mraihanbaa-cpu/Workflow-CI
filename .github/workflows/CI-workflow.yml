@@ -36,7 +36,7 @@ jobs:
       # Saya asumsikan ada di folder 'modelling' dengan nama file di bawah ini.
       - name: Train Model & Log to MLflow
         run: |
-          python modelling/train_model.py
+          python MLProject/modelling.py
 
       - name: run MLProject
         run: |
