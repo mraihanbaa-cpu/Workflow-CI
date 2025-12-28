@@ -1,53 +1,50 @@
-name: CI - MLProject
+name: MLflow CI
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
-  train-model:
+  train:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout Repository
+      - name: Checkout repo
         uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Install Miniconda
+
+      - name: Set up Miniconda
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          python-version: '3.12'
+          python-version: "3.10"
+          environment-file: conda.yaml
           activate-environment: mlflow-env
-      
-      - name: Install MLflow
+
+      - name: Verify env
         shell: bash -l {0}
         run: |
-          pip install mlflow==2.19.0
+          python --version
+          pip --version
+          pip list | head -n 50
+
+      - name: Run MLflow Project (local tracking)
+        shell: bash -l {0}
+        env:
+          # simpan tracking ke workspace biar gampang di-upload sebagai artifact
+          MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
+        run: |
           mlflow --version
-      
-      - name: Run MLflow Project
-        shell: bash -l {0}
-        run: |
-          cd MLProject
-          mlflow run . \
-            --env-manager=conda \
-            --experiment-name="BookPopularityCI" \
-            -P n_estimators=150 \
-            -P max_depth=25
-      
-      - name: Upload Model Artifacts
+          mlflow run .
+
+      - name: Upload MLflow runs (mlruns)
         uses: actions/upload-artifact@v4
         with:
-          name: model-artifacts
-          path: MLProject/mlruns/
-          retention-days: 30
+          name: mlruns
+          path: mlruns
+
+      - name: Upload training artifacts (artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifacts
+          path: artifacts

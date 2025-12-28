@@ -1,17 +1,12 @@
+name: mlflow-env
 channels:
   - conda-forge
 dependencies:
-  - python=3.12.7
-  - pip<=24.2
+  - python=3.10
+  - pip
   - pip:
-    - mlflow==2.19.0
-    - cloudpickle==3.1.0
-    - numpy==2.2.1
-    - pandas==2.2.3
-    - psutil==5.9.0
-    - scikit-learn==1.6.0
-    - scipy==1.14.1
-    - matplotlib==3.10.0
-    - seaborn==0.13.2
-    - joblib==1.4.2
-name: mlflow-bookpopularity
+      - mlflow==2.14.3
+      - scikit-learn==1.5.2
+      - pandas==2.2.2
+      - numpy==2.0.2
+      - matplotlib==3.9.2
