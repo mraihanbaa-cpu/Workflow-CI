@@ -1,2 +1,17 @@
+# MLflow local tracking
 mlruns/
+MLProject/mlruns/
+
+# training outputs
 artifacts/
+MLProject/artifacts/
+
+# Python cache/venv
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# misc
+.env
+.DS_Store

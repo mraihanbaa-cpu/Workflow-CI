@@ -18,31 +18,5 @@ jobs:
         with:
           auto-update-conda: true
           python-version: "3.10"
-          environment-file: MLProject/conda.yaml   #  FIX PATH
-          activate-environment: mlflow-env
-
-      - name: Verify env
-        shell: bash -l {0}
-        run: |
-          python --version
-          pip list | head -n 30
-
-      - name: Run MLflow Project (local tracking)
-        shell: bash -l {0}
-        env:
-          MLFLOW_TRACKING_URI: file:${{ github.workspace }}/mlruns
-        run: |
-          cd MLProject            #  MASUK KE FOLDER MLProject
-          mlflow run .
-
-      - name: Upload MLflow runs (mlruns)
-        uses: actions/upload-artifact@v4
-        with:
-          name: mlruns
-          path: mlruns
-
-      - name: Upload training artifacts (artifacts)
-        uses: actions/upload-artifact@v4
-        with:
-          name: artifacts
-          path: MLProject/artifacts
+          environment-file: MLProject/conda.yaml
+          activate-

@@ -38,10 +38,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # DATA HELPERS
 # --------------------------------------------------
 def find_books_csv():
-    """
-    Find dataset file in common locations or recursively.
-    Expected file: top_1000_books_preprocessing.csv
-    """
+    """Find dataset in common locations or recursively."""
     candidates = [
         "top_1000_books_preprocessing.csv",
         os.path.join("data", "top_1000_books_preprocessing.csv"),
@@ -55,15 +52,36 @@ def find_books_csv():
     if matches:
         return matches[0]
 
-    # fallback: any csv that contains "books" and "preprocess"
-    matches2 = glob.glob("**/*books*preprocess*.csv", recursive=True)
-    if matches2:
-        return matches2[0]
-
     raise FileNotFoundError(
-        "Dataset not found. Ensure 'top_1000_books_preprocessing.csv' exists "
-        "in project root (or provide --data_path)."
+        "Dataset not found. Provide --data_path or place 'top_1000_books_preprocessing.csv' "
+        "in this folder (MLProject/) or project root."
     )
+
+
+def load_dataset(data_path: str | None):
+    """
+    Load dataset either from local path or from URL.
+    If data_path is None -> auto-search.
+    """
+    if data_path and data_path != "None":
+        # allow URL
+        if data_path.startswith("http://") or data_path.startswith("https://"):
+            logging.info("Loading dataset from URL: %s", data_path)
+            return pd.read_csv(data_path)
+
+        if not os.path.exists(data_path):
+            alt = os.path.join(os.path.dirname(__file__), data_path)
+            if os.path.exists(alt):
+                data_path = alt
+            else:
+                raise FileNotFoundError(f"Dataset not found: {data_path}")
+
+        logging.info("Loading dataset from file: %s", data_path)
+        return pd.read_csv(data_path)
+
+    auto_path = find_books_csv()
+    logging.info("Auto dataset path: %s", auto_path)
+    return pd.read_csv(auto_path)
 
 
 # --------------------------------------------------
@@ -71,8 +89,8 @@ def find_books_csv():
 # --------------------------------------------------
 def setup_mlflow_tracking(experiment_name: str = "books-ml-project"):
     """
-    Set MLflow tracking to LOCAL filesystem by default.
-    - In CI: you may set MLFLOW_TRACKING_URI (recommended).
+    Set MLflow tracking to LOCAL filesystem.
+    - In CI: MLFLOW_TRACKING_URI is set (recommended).
     - Locally: fallback to ./mlruns inside this script directory.
     """
     env_uri = os.getenv("MLFLOW_TRACKING_URI")
@@ -102,19 +120,15 @@ def ensure_active_run() -> bool:
         mlflow.start_run()
         return False
     except Exception:
-        # Some environments can have MLFLOW_RUN_ID set but not resolvable; make it robust
         os.environ.pop("MLFLOW_RUN_ID", None)
         mlflow.start_run()
         return False
 
 
 # --------------------------------------------------
-# CORE
+# EVAL + ARTIFACTS
 # --------------------------------------------------
 def evaluate_and_log(model, X_test, y_test, out_dir: str):
-    """
-    Evaluate model, log metrics + evaluation artifacts.
-    """
     y_pred = model.predict(X_test)
 
     y_proba = None
@@ -146,7 +160,6 @@ def evaluate_and_log(model, X_test, y_test, out_dir: str):
     if roc_auc is not None:
         logging.info("Metrics: roc_auc=%.4f", roc_auc)
 
-    # ---- artifacts
     os.makedirs(out_dir, exist_ok=True)
 
     # classification report
@@ -166,7 +179,7 @@ def evaluate_and_log(model, X_test, y_test, out_dir: str):
     plt.close(fig)
     mlflow.log_artifact(cm_path, artifact_path="evaluation")
 
-    # roc curve (optional)
+    # ROC curve (optional)
     if y_proba is not None:
         fig, ax = plt.subplots(figsize=(6, 5))
         RocCurveDisplay.from_predictions(y_test, y_proba, ax=ax)
@@ -193,26 +206,11 @@ def main(
 ):
     os.makedirs(out_dir, exist_ok=True)
 
-    # ✅ LOCAL MLflow tracking (submission-safe: NO DagsHub)
     setup_mlflow_tracking(experiment_name=experiment_name)
-
     already_active = ensure_active_run()
 
     try:
-        # Resolve dataset path
-        if data_path:
-            if not os.path.exists(data_path):
-                alt = os.path.join(os.path.dirname(__file__), data_path)
-                if os.path.exists(alt):
-                    data_path = alt
-                else:
-                    raise FileNotFoundError(f"Dataset not found: {data_path}")
-            logging.info("Using dataset: %s", data_path)
-        else:
-            data_path = find_books_csv()
-            logging.info("Auto dataset: %s", data_path)
-
-        df = pd.read_csv(data_path)
+        df = load_dataset(data_path)
 
         if "bestseller_status" not in df.columns:
             raise ValueError("Target column 'bestseller_status' not found in dataset")
@@ -224,21 +222,18 @@ def main(
             X, y, test_size=test_size, stratify=y, random_state=random_state
         )
 
-        # set run name if not already started by wrapper
-        if mlflow.active_run() is not None and mlflow.active_run().info.run_name is None:
-            mlflow.set_tag("mlflow.runName", run_name)
-
-        # Params
+        # params
         mlflow.log_param("model_type", "RandomForestClassifier")
         mlflow.log_param("n_estimators", int(n_estimators))
         mlflow.log_param("max_depth", None if max_depth in (None, "None") else int(max_depth))
         mlflow.log_param("test_size", float(test_size))
         mlflow.log_param("random_state", int(random_state))
+        mlflow.log_param("data_path", data_path if data_path else "auto")
 
-        # Autolog ON (sklearn)
+        mlflow.set_tag("mlflow.runName", run_name)
+
         mlflow.sklearn.autolog(log_models=True)
 
-        # Train
         logging.info("Training RandomForest...")
         model = RandomForestClassifier(
             n_estimators=int(n_estimators),
@@ -248,24 +243,22 @@ def main(
         )
         model.fit(X_train, y_train)
 
-        # Evaluate + log
         evaluate_and_log(model, X_test, y_test, out_dir=out_dir)
 
-        # Save best model to artifacts/model (MLflow model format)
+        # Save MLflow model to out_dir/model and log it
         best_model_dir = os.path.join(out_dir, "model")
         if os.path.exists(best_model_dir):
             shutil.rmtree(best_model_dir)
+
         mlflow.sklearn.save_model(model, best_model_dir)
 
-        # sanity check
         if not os.path.exists(os.path.join(best_model_dir, "MLmodel")):
             raise RuntimeError("MLmodel not created")
 
         mlflow.log_artifacts(best_model_dir, artifact_path="model")
-        logging.info("Model saved to %s and logged as MLflow artifact.", best_model_dir)
+        logging.info("Model saved & logged: %s", best_model_dir)
 
     finally:
-        # Only end run if we started it
         if not already_active:
             mlflow.end_run()
 
@@ -274,13 +267,16 @@ def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_estimators", type=int, default=200)
-    parser.add_argument("--max_depth", type=str, default=None)
+    parser.add_argument("--max_depth", type=str, default="None")
     parser.add_argument("--test_size", type=float, default=0.2)
     parser.add_argument("--random_state", type=int, default=42)
-    parser.add_argument("--data_path", type=str, default=None)
+
+    # data_path can be local file or URL
+    parser.add_argument("--data_path", type=str, default="None")
     parser.add_argument("--out_dir", type=str, default="artifacts")
     parser.add_argument("--experiment_name", type=str, default="books-ml-project")
     parser.add_argument("--run_name", type=str, default="RandomForest_LocalMLflow")
+
     args = parser.parse_args()
 
     try:

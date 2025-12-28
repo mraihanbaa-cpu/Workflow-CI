@@ -4,22 +4,5 @@ conda_env: conda.yaml
 
 entry_points:
   main:
-    parameters:
-      n_estimators: {type: int, default: 200}
-      max_depth: {type: str, default: "None"}
-      test_size: {type: float, default: 0.2}
-      random_state: {type: int, default: 42}
-      data_path: {type: str, default: "None"}
-      out_dir: {type: str, default: "artifacts"}
-      experiment_name: {type: str, default: "books-ml-project"}
-      run_name: {type: str, default: "RandomForest_LocalMLflow"}
     command: >
-      python modeling.py
-      --n_estimators {n_estimators}
-      --max_depth {max_depth}
-      --test_size {test_size}
-      --random_state {random_state}
-      --data_path {data_path}
-      --out_dir {out_dir}
-      --experiment_name {experiment_name}
-      --run_name {run_name}
+      python modelling.py
